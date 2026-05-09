@@ -5,6 +5,7 @@ import argparse
 import json
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Script de preparação do ambiente e criação de métricas")
@@ -62,6 +63,22 @@ REPOSITORIOS = {
     ]
 }
 
+CHAVE_PARA_SECAO = {
+    "idNumberofEndpointsMetric": "metrics",
+    "idDatabaseConnectionsMetric": "metrics",
+    "idAmarisMicroservice": "microservices",
+    "idAmarisContabilMicroservice": "microservices",
+    "idFinanceUsersMicroservice": "microservices",
+    "idPainelContabilMicroservice": "microservices",
+    "idOpenApiEndpointsCollector": "collectors",
+    "idSourceCodeCollector": "collectors",
+    "idLogMetricOperationsCollector": "collectors",
+    "idCodeDbConnectionsCollector": "collectors",
+    "idDockerComposeDbConnsCollector": "collectors",
+    "idLogDBMetricOperationsCollector": "collectors",
+    "idOpenApiAmarisCollectorConfig": "collectorConfigs",
+}
+
 def run_command(command, cwd=None):
     """Executa um comando e lança um erro se falhar, permitindo capturar depois."""
     try:
@@ -78,6 +95,7 @@ def criar_metrica(payload):
     endpoint = "http://localhost:8080/metrics"
     headers = {"Content-Type": "application/json"}
 
+    print("\n" + "-"*40)
     print("\n📨 Requisição HTTP")
     print(f"   Método: POST")
     print(f"   URL: {endpoint}")
@@ -132,6 +150,7 @@ def criar_microservico(payload):
     endpoint = "http://localhost:8080/microservices"
     headers = {"Content-Type": "application/json"}
 
+    print("\n" + "-"*40)
     print("\n📨 Requisição HTTP")
     print("   Método: POST")
     print(f"   URL: {endpoint}")
@@ -185,6 +204,7 @@ def criar_collector(payload):
     endpoint = "http://localhost:8080/collectors"
     headers = {"Content-Type": "application/json"}
 
+    print("\n" + "-"*40)
     print("\n📨 Requisição HTTP")
     print("   Método: POST")
     print(f"   URL: {endpoint}")
@@ -231,24 +251,143 @@ def criar_collector(payload):
     return collector_id
 
 
+def criar_collector_config(payload):
+    """Cria uma configuração de coleta e retorna o ID em $.id."""
+    data = json.dumps(payload).encode("utf-8")
+    request_body = json.dumps(payload, ensure_ascii=False)
+    endpoint = "http://localhost:8080/collector-configs"
+    headers = {"Content-Type": "application/json"}
+
+    print("\n" + "-"*40)
+    print("\n📨 Requisição HTTP")
+    print("   Método: POST")
+    print(f"   URL: {endpoint}")
+    print(f"   Headers: {headers}")
+    print(f"   Body: {request_body}")
+    print("⏳ Enviando requisição para criar collector-config...\n")
+
+    req = urllib.request.Request(
+        endpoint,
+        data=data,
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            status_code = response.getcode()
+            body = response.read().decode("utf-8")
+            print("📥 Resposta HTTP")
+            print(f"   Status: {status_code}")
+            print(f"   Body: {body}")
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="ignore")
+        print("📥 Resposta HTTP")
+        print(f"   Status: {e.code}")
+        print(f"   Body: {error_body}")
+        print(f"❌ Erro HTTP ao criar collector-config: {e.code} - {error_body}")
+        raise
+    except urllib.error.URLError as e:
+        print(f"❌ Erro de conexão ao criar collector-config: {e.reason}")
+        raise
+
+    try:
+        response_json = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        print(f"❌ Resposta inválida ao criar collector-config: {body}")
+        raise
+
+    collector_config_id = response_json.get("id")
+    if collector_config_id is None:
+        print(f"❌ A resposta não contém $.id para collector-config: {response_json}")
+        raise ValueError("ID do collector-config não encontrado na resposta")
+
+    return collector_config_id
+
+
 def carregar_config_ids(caminho_config):
     """Carrega IDs de métricas do arquivo de configuração."""
     if not caminho_config.exists():
-        return {}
+        return {
+            "metrics": {},
+            "microservices": {},
+            "collectors": {},
+            "collectorConfigs": {},
+        }
 
     try:
         with caminho_config.open("r", encoding="utf-8") as f:
             dados = json.load(f)
-            return dados if isinstance(dados, dict) else {}
+            return normalizar_config_ids(dados)
     except (json.JSONDecodeError, OSError):
         print(f"⚠️ Não foi possível ler {caminho_config.name}. Um novo arquivo será gerado.")
-        return {}
+        return {
+            "metrics": {},
+            "microservices": {},
+            "collectors": {},
+            "collectorConfigs": {},
+        }
+
+
+def normalizar_config_ids(dados):
+    """Normaliza config para o formato com seções, mantendo compatibilidade com formato antigo."""
+    estrutura_base = {
+        "metrics": {},
+        "microservices": {},
+        "collectors": {},
+        "collectorConfigs": {},
+    }
+
+    if not isinstance(dados, dict):
+        return estrutura_base
+
+    for secao in estrutura_base:
+        valor_secao = dados.get(secao)
+        if isinstance(valor_secao, dict):
+            estrutura_base[secao].update(valor_secao)
+
+    for chave, valor in dados.items():
+        if chave in estrutura_base:
+            continue
+        secao = CHAVE_PARA_SECAO.get(chave)
+        if secao:
+            estrutura_base[secao][chave] = valor
+
+    return estrutura_base
+
+
+def obter_config_id(config, chave):
+    """Obtém ID por chave no novo formato e com fallback para estruturas antigas."""
+    secao = CHAVE_PARA_SECAO.get(chave)
+    if secao and isinstance(config.get(secao), dict):
+        valor = config[secao].get(chave)
+        if valor:
+            return valor
+
+    for secao_nome in ["metrics", "microservices", "collectors", "collectorConfigs"]:
+        secao_dict = config.get(secao_nome)
+        if isinstance(secao_dict, dict) and chave in secao_dict:
+            return secao_dict[chave]
+
+    return config.get(chave)
+
+
+def definir_config_id(config, chave, valor):
+    """Define ID em sua seção apropriada no novo formato."""
+    secao = CHAVE_PARA_SECAO.get(chave)
+    if secao is None:
+        config[chave] = valor
+        return
+    if secao not in config or not isinstance(config.get(secao), dict):
+        config[secao] = {}
+    config[secao][chave] = valor
 
 
 def salvar_config_ids(caminho_config, dados):
     """Salva IDs de métricas no arquivo de configuração."""
+    dados_normalizados = normalizar_config_ids(dados)
     with caminho_config.open("w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+        json.dump(dados_normalizados, f, ensure_ascii=False, indent=2)
 
 
 ARQUIVO_CONFIG_METRICAS = Path(__file__).resolve().with_name("metrics_config.json")
@@ -345,7 +484,7 @@ print("🎉 Sucesso Absoluto! Toda a estrutura foi validada, atualizada e os con
 
 if args.limpar_banco_dados:
     print("🧹 Limpando IDs salvos em configuração para evitar reuso após limpeza do banco...")
-    salvar_config_ids(ARQUIVO_CONFIG_METRICAS, {})
+    salvar_config_ids(ARQUIVO_CONFIG_METRICAS, normalizar_config_ids({}))
     print(f"💾 Arquivo de configuração reiniciado: {ARQUIVO_CONFIG_METRICAS}")
 
 # ==========================================
@@ -373,24 +512,24 @@ try:
         print("🔁 Modo forçado ativado: recriando IDs das métricas...")
         idNumberofEndpointsMetric = criar_metrica(payload_number_of_endpoints)
         idDatabaseConnectionsMetric = criar_metrica(payload_database_connections)
-        config_metricas["idNumberofEndpointsMetric"] = idNumberofEndpointsMetric
-        config_metricas["idDatabaseConnectionsMetric"] = idDatabaseConnectionsMetric
+        definir_config_id(config_metricas, "idNumberofEndpointsMetric", idNumberofEndpointsMetric)
+        definir_config_id(config_metricas, "idDatabaseConnectionsMetric", idDatabaseConnectionsMetric)
         houve_alteracao_config = True
     else:
-        idNumberofEndpointsMetric = config_metricas.get("idNumberofEndpointsMetric")
+        idNumberofEndpointsMetric = obter_config_id(config_metricas, "idNumberofEndpointsMetric")
         if idNumberofEndpointsMetric:
             print("♻️ Reutilizando idNumberofEndpointsMetric salvo em configuração.")
         else:
             idNumberofEndpointsMetric = criar_metrica(payload_number_of_endpoints)
-            config_metricas["idNumberofEndpointsMetric"] = idNumberofEndpointsMetric
+            definir_config_id(config_metricas, "idNumberofEndpointsMetric", idNumberofEndpointsMetric)
             houve_alteracao_config = True
 
-        idDatabaseConnectionsMetric = config_metricas.get("idDatabaseConnectionsMetric")
+        idDatabaseConnectionsMetric = obter_config_id(config_metricas, "idDatabaseConnectionsMetric")
         if idDatabaseConnectionsMetric:
             print("♻️ Reutilizando idDatabaseConnectionsMetric salvo em configuração.")
         else:
             idDatabaseConnectionsMetric = criar_metrica(payload_database_connections)
-            config_metricas["idDatabaseConnectionsMetric"] = idDatabaseConnectionsMetric
+            definir_config_id(config_metricas, "idDatabaseConnectionsMetric", idDatabaseConnectionsMetric)
             houve_alteracao_config = True
 
     if houve_alteracao_config:
@@ -471,33 +610,33 @@ try:
         idAmarisContabilMicroservice = criar_microservico(payload_amaris_contabil)
         idFinanceUsersMicroservice = criar_microservico(payload_finance_users)
         idPainelContabilMicroservice = criar_microservico(payload_painel_contabil)
-        config_metricas["idAmarisContabilMicroservice"] = idAmarisContabilMicroservice
-        config_metricas["idFinanceUsersMicroservice"] = idFinanceUsersMicroservice
-        config_metricas["idPainelContabilMicroservice"] = idPainelContabilMicroservice
+        definir_config_id(config_metricas, "idAmarisContabilMicroservice", idAmarisContabilMicroservice)
+        definir_config_id(config_metricas, "idFinanceUsersMicroservice", idFinanceUsersMicroservice)
+        definir_config_id(config_metricas, "idPainelContabilMicroservice", idPainelContabilMicroservice)
         houve_alteracao_config = True
     else:
-        idAmarisContabilMicroservice = config_metricas.get("idAmarisContabilMicroservice")
+        idAmarisContabilMicroservice = obter_config_id(config_metricas, "idAmarisContabilMicroservice")
         if idAmarisContabilMicroservice:
             print("♻️ Reutilizando idAmarisContabilMicroservice salvo em configuração.")
         else:
             idAmarisContabilMicroservice = criar_microservico(payload_amaris_contabil)
-            config_metricas["idAmarisContabilMicroservice"] = idAmarisContabilMicroservice
+            definir_config_id(config_metricas, "idAmarisContabilMicroservice", idAmarisContabilMicroservice)
             houve_alteracao_config = True
 
-        idFinanceUsersMicroservice = config_metricas.get("idFinanceUsersMicroservice")
+        idFinanceUsersMicroservice = obter_config_id(config_metricas, "idFinanceUsersMicroservice")
         if idFinanceUsersMicroservice:
             print("♻️ Reutilizando idFinanceUsersMicroservice salvo em configuração.")
         else:
             idFinanceUsersMicroservice = criar_microservico(payload_finance_users)
-            config_metricas["idFinanceUsersMicroservice"] = idFinanceUsersMicroservice
+            definir_config_id(config_metricas, "idFinanceUsersMicroservice", idFinanceUsersMicroservice)
             houve_alteracao_config = True
 
-        idPainelContabilMicroservice = config_metricas.get("idPainelContabilMicroservice")
+        idPainelContabilMicroservice = obter_config_id(config_metricas, "idPainelContabilMicroservice")
         if idPainelContabilMicroservice:
             print("♻️ Reutilizando idPainelContabilMicroservice salvo em configuração.")
         else:
             idPainelContabilMicroservice = criar_microservico(payload_painel_contabil)
-            config_metricas["idPainelContabilMicroservice"] = idPainelContabilMicroservice
+            definir_config_id(config_metricas, "idPainelContabilMicroservice", idPainelContabilMicroservice)
             houve_alteracao_config = True
 
     if houve_alteracao_config:
@@ -719,61 +858,61 @@ try:
         idLogMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector)
         idCodeDbConnectionsCollector = criar_collector(payload_code_db_connections_collector)
         idDockerComposeDbConnsCollector = criar_collector(payload_docker_compose_db_conns_collector)
-        idLogMetricOperationsCollector8084 = criar_collector(payload_log_metric_operations_collector_8084)
-        config_metricas["idOpenApiEndpointsCollector"] = idOpenApiEndpointsCollector
-        config_metricas["idSourceCodeCollector"] = idSourceCodeCollector
-        config_metricas["idLogMetricOperationsCollector"] = idLogMetricOperationsCollector
-        config_metricas["idCodeDbConnectionsCollector"] = idCodeDbConnectionsCollector
-        config_metricas["idDockerComposeDbConnsCollector"] = idDockerComposeDbConnsCollector
-        config_metricas["idLogMetricOperationsCollector8084"] = idLogMetricOperationsCollector8084
+        idLogDBMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector_8084)
+        definir_config_id(config_metricas, "idOpenApiEndpointsCollector", idOpenApiEndpointsCollector)
+        definir_config_id(config_metricas, "idSourceCodeCollector", idSourceCodeCollector)
+        definir_config_id(config_metricas, "idLogMetricOperationsCollector", idLogMetricOperationsCollector)
+        definir_config_id(config_metricas, "idCodeDbConnectionsCollector", idCodeDbConnectionsCollector)
+        definir_config_id(config_metricas, "idDockerComposeDbConnsCollector", idDockerComposeDbConnsCollector)
+        definir_config_id(config_metricas, "idLogDBMetricOperationsCollector", idLogDBMetricOperationsCollector)
         houve_alteracao_config = True
     else:
-        idOpenApiEndpointsCollector = config_metricas.get("idOpenApiEndpointsCollector")
+        idOpenApiEndpointsCollector = obter_config_id(config_metricas, "idOpenApiEndpointsCollector")
         if idOpenApiEndpointsCollector:
             print("♻️ Reutilizando idOpenApiEndpointsCollector salvo em configuração.")
         else:
             idOpenApiEndpointsCollector = criar_collector(payload_openapi_endpoints_collector)
-            config_metricas["idOpenApiEndpointsCollector"] = idOpenApiEndpointsCollector
+            definir_config_id(config_metricas, "idOpenApiEndpointsCollector", idOpenApiEndpointsCollector)
             houve_alteracao_config = True
 
-        idSourceCodeCollector = config_metricas.get("idSourceCodeCollector")
+        idSourceCodeCollector = obter_config_id(config_metricas, "idSourceCodeCollector")
         if idSourceCodeCollector:
             print("♻️ Reutilizando idSourceCodeCollector salvo em configuração.")
         else:
             idSourceCodeCollector = criar_collector(payload_source_code_collector)
-            config_metricas["idSourceCodeCollector"] = idSourceCodeCollector
+            definir_config_id(config_metricas, "idSourceCodeCollector", idSourceCodeCollector)
             houve_alteracao_config = True
 
-        idLogMetricOperationsCollector = config_metricas.get("idLogMetricOperationsCollector")
+        idLogMetricOperationsCollector = obter_config_id(config_metricas, "idLogMetricOperationsCollector")
         if idLogMetricOperationsCollector:
             print("♻️ Reutilizando idLogMetricOperationsCollector salvo em configuração.")
         else:
             idLogMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector)
-            config_metricas["idLogMetricOperationsCollector"] = idLogMetricOperationsCollector
+            definir_config_id(config_metricas, "idLogMetricOperationsCollector", idLogMetricOperationsCollector)
             houve_alteracao_config = True
 
-        idCodeDbConnectionsCollector = config_metricas.get("idCodeDbConnectionsCollector")
+        idCodeDbConnectionsCollector = obter_config_id(config_metricas, "idCodeDbConnectionsCollector")
         if idCodeDbConnectionsCollector:
             print("♻️ Reutilizando idCodeDbConnectionsCollector salvo em configuração.")
         else:
             idCodeDbConnectionsCollector = criar_collector(payload_code_db_connections_collector)
-            config_metricas["idCodeDbConnectionsCollector"] = idCodeDbConnectionsCollector
+            definir_config_id(config_metricas, "idCodeDbConnectionsCollector", idCodeDbConnectionsCollector)
             houve_alteracao_config = True
 
-        idDockerComposeDbConnsCollector = config_metricas.get("idDockerComposeDbConnsCollector")
+        idDockerComposeDbConnsCollector = obter_config_id(config_metricas, "idDockerComposeDbConnsCollector")
         if idDockerComposeDbConnsCollector:
             print("♻️ Reutilizando idDockerComposeDbConnsCollector salvo em configuração.")
         else:
             idDockerComposeDbConnsCollector = criar_collector(payload_docker_compose_db_conns_collector)
-            config_metricas["idDockerComposeDbConnsCollector"] = idDockerComposeDbConnsCollector
+            definir_config_id(config_metricas, "idDockerComposeDbConnsCollector", idDockerComposeDbConnsCollector)
             houve_alteracao_config = True
 
-        idLogMetricOperationsCollector8084 = config_metricas.get("idLogMetricOperationsCollector8084")
-        if idLogMetricOperationsCollector8084:
-            print("♻️ Reutilizando idLogMetricOperationsCollector8084 salvo em configuração.")
+        idLogDBMetricOperationsCollector = obter_config_id(config_metricas, "idLogDBMetricOperationsCollector")
+        if idLogDBMetricOperationsCollector:
+            print("♻️ Reutilizando idLogDBMetricOperationsCollector salvo em configuração.")
         else:
-            idLogMetricOperationsCollector8084 = criar_collector(payload_log_metric_operations_collector_8084)
-            config_metricas["idLogMetricOperationsCollector8084"] = idLogMetricOperationsCollector8084
+            idLogDBMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector_8084)
+            definir_config_id(config_metricas, "idLogDBMetricOperationsCollector", idLogDBMetricOperationsCollector)
             houve_alteracao_config = True
 
     if houve_alteracao_config:
@@ -788,4 +927,49 @@ print(f"✅ idSourceCodeCollector: {idSourceCodeCollector}")
 print(f"✅ idLogMetricOperationsCollector: {idLogMetricOperationsCollector}")
 print(f"✅ idCodeDbConnectionsCollector: {idCodeDbConnectionsCollector}")
 print(f"✅ idDockerComposeDbConnsCollector: {idDockerComposeDbConnsCollector}")
-print(f"✅ idLogMetricOperationsCollector8084: {idLogMetricOperationsCollector8084}")
+print(f"✅ idLogDBMetricOperationsCollector: {idLogDBMetricOperationsCollector}")
+
+# ==========================================
+# ETAPA 6: Criar configurações de coleta
+# ==========================================
+print("\n🔄 ETAPA 6: Criando configurações de coleta...")
+
+start_date_time = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+end_date_time = (datetime.now(timezone.utc) + timedelta(minutes=30)).replace(microsecond=0).isoformat()
+
+payload_openapi_amaris_collector_config = {
+    "collectorId": idOpenApiEndpointsCollector,
+    "microserviceId": idAmarisContabilMicroservice,
+    "cronExpression": "0 */5 * * * *",
+    "startDateTime": start_date_time,
+    "endDateTime": end_date_time,
+}
+
+try:
+    config_metricas = carregar_config_ids(ARQUIVO_CONFIG_METRICAS)
+    houve_alteracao_config = False
+
+    if args.forcar_recriacao_ids:
+        print("🔁 Modo forçado ativado: recriando collector-config...")
+        idOpenApiAmarisCollectorConfig = criar_collector_config(payload_openapi_amaris_collector_config)
+        definir_config_id(config_metricas, "idOpenApiAmarisCollectorConfig", idOpenApiAmarisCollectorConfig)
+        houve_alteracao_config = True
+    else:
+        idOpenApiAmarisCollectorConfig = obter_config_id(config_metricas, "idOpenApiAmarisCollectorConfig")
+        if idOpenApiAmarisCollectorConfig:
+            print("♻️ Reutilizando idOpenApiAmarisCollectorConfig salvo em configuração.")
+        else:
+            idOpenApiAmarisCollectorConfig = criar_collector_config(payload_openapi_amaris_collector_config)
+            definir_config_id(config_metricas, "idOpenApiAmarisCollectorConfig", idOpenApiAmarisCollectorConfig)
+            houve_alteracao_config = True
+
+    if houve_alteracao_config:
+        salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
+        print(f"💾 IDs salvos em: {ARQUIVO_CONFIG_METRICAS}")
+except Exception:
+    print("❌ Não foi possível criar a configuração de coleta.")
+    sys.exit(1)
+
+print(f"✅ idOpenApiAmarisCollectorConfig: {idOpenApiAmarisCollectorConfig}")
+print(f"✅ startDateTime utilizado: {start_date_time}")
+print(f"✅ endDateTime utilizado: {end_date_time}")
