@@ -13,6 +13,11 @@ parser.add_argument(
     action="store_true",
     help="Força a recriação dos IDs (métricas e microserviços) e sobrescreve o arquivo de configuração.",
 )
+parser.add_argument(
+    "--limpar-banco-dados",
+    action="store_true",
+    help="Limpa dados persistidos do banco antes da subida, executando 'docker compose down -v'.",
+)
 args = parser.parse_args()
 
 # ==========================================
@@ -245,6 +250,9 @@ def salvar_config_ids(caminho_config, dados):
     with caminho_config.open("w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
 
+
+ARQUIVO_CONFIG_METRICAS = Path(__file__).resolve().with_name("metrics_config.json")
+
 # Entrada do usuário
 entrada_usuario = input("📁 Digite o caminho raiz onde as pastas serão criadas (ou atualizadas): ")
 pasta_raiz = Path(entrada_usuario).expanduser().resolve()
@@ -296,6 +304,18 @@ projetos_iniciados = []
 try:
     for caminho_projeto in pastas_dos_projetos:
         print(f"\n🐳 Subindo: {caminho_projeto.parent.name} / {caminho_projeto.name}")
+
+        if args.limpar_banco_dados:
+            print("🧹 Flag --limpar-banco-dados ativa: removendo volumes para iniciar com banco limpo...")
+            # Usa check=False porque alguns projetos podem não estar rodando ainda.
+            subprocess.run(
+                ["docker", "compose", "down", "-v"],
+                cwd=caminho_projeto,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+
         run_command(["docker", "compose", "up", "--build", "-d"], cwd=caminho_projeto)
         
         # Adiciona à lista de projetos que subiram com sucesso (ou que tentaram subir)
@@ -323,12 +343,15 @@ except subprocess.CalledProcessError:
 print("\n" + "="*40)
 print("🎉 Sucesso Absoluto! Toda a estrutura foi validada, atualizada e os contêineres estão rodando perfeitamente.")
 
+if args.limpar_banco_dados:
+    print("🧹 Limpando IDs salvos em configuração para evitar reuso após limpeza do banco...")
+    salvar_config_ids(ARQUIVO_CONFIG_METRICAS, {})
+    print(f"💾 Arquivo de configuração reiniciado: {ARQUIVO_CONFIG_METRICAS}")
+
 # ==========================================
 # ETAPA 3: Criar métricas base no MetricHub
 # ==========================================
 print("\n🔄 ETAPA 3: Criando métricas base...")
-
-ARQUIVO_CONFIG_METRICAS = Path(__file__).resolve().with_name("metrics_config.json")
 
 payload_number_of_endpoints = {
     "name": "Number of endpoints",
@@ -589,6 +612,102 @@ payload_log_metric_operations_collector = {
     ],
 }
 
+payload_code_db_connections_collector = {
+    "name": "Code DB Connections",
+    "description": "Collector to count database connections from a repository in Github",
+    "collectionMethod": "code",
+    "metricId": idDatabaseConnectionsMetric,
+    "metadata": [
+        {
+            "keyName": "url",
+            "keyValue": "http://host.docker.internal:8084/collect",
+        },
+        {
+            "keyName": "requestSchema",
+            "keyValue": "{\"type\":\"object\",\"properties\":{\"repositoryUrl\":{\"type\":\"string\"}},\"required\":[\"repositoryUrl\"]}",
+        },
+        {
+            "keyName": "httpMethod",
+            "keyValue": "POST",
+        },
+        {
+            "keyName": "pathToMetric",
+            "keyValue": "$.measurement.value",
+        },
+    ],
+    "responseSchemas": [
+        {
+            "schema": "{\"type\":\"object\",\"properties\":{\"metric\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"collectorStrategy\":{\"type\":\"string\"}}},\"measurement\":{\"type\":\"object\",\"properties\":{\"apiIdentifier\":{\"type\":\"string\"},\"value\":{\"type\":\"number\"},\"unit\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\"}}}}}",
+            "statusType": 200,
+            "description": "Successful response with metric and measurement data",
+        }
+    ],
+}
+
+payload_docker_compose_db_conns_collector = {
+    "name": "Docker compose DB Conns",
+    "description": "Collector to count database connections from a repository with docker compose",
+    "collectionMethod": "docker compose",
+    "metricId": idDatabaseConnectionsMetric,
+    "metadata": [
+        {
+            "keyName": "url",
+            "keyValue": "http://host.docker.internal:8084/collect",
+        },
+        {
+            "keyName": "requestSchema",
+            "keyValue": "{\"type\":\"object\",\"properties\":{\"repositoryUrl\":{\"type\":\"string\"},\"dockerComposeAnalysis\":{\"type\":\"boolean\"}},\"required\":[\"repositoryUrl\",\"dockerComposeAnalysis\"]}",
+        },
+        {
+            "keyName": "httpMethod",
+            "keyValue": "POST",
+        },
+        {
+            "keyName": "pathToMetric",
+            "keyValue": "$.measurement.value",
+        },
+    ],
+    "responseSchemas": [
+        {
+            "schema": "{\"type\":\"object\",\"properties\":{\"metric\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"collectorStrategy\":{\"type\":\"string\"}}},\"measurement\":{\"type\":\"object\",\"properties\":{\"apiIdentifier\":{\"type\":\"string\"},\"value\":{\"type\":\"number\"},\"unit\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\"}}}}}",
+            "statusType": 200,
+            "description": "Successful response with metric and measurement data",
+        }
+    ],
+}
+
+payload_log_metric_operations_collector_8084 = {
+    "name": "Log Metric Operations Collector",
+    "description": "Collector to count operations from logs of an application",
+    "collectionMethod": "logs",
+    "metricId": idDatabaseConnectionsMetric,
+    "metadata": [
+        {
+            "keyName": "url",
+            "keyValue": "http://host.docker.internal:8084/api/collect",
+        },
+        {
+            "keyName": "requestSchema",
+            "keyValue": "{\"type\":\"object\",\"properties\":{\"urlLog\":{\"type\":\"string\",\"format\":\"uri\"}},\"required\":[\"urlLog\"]}",
+        },
+        {
+            "keyName": "httpMethod",
+            "keyValue": "POST",
+        },
+        {
+            "keyName": "pathToMetric",
+            "keyValue": "$.measurement.value",
+        },
+    ],
+    "responseSchemas": [
+        {
+            "schema": "{\"type\":\"object\",\"properties\":{\"metric\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"collectorStrategy\":{\"type\":\"string\"}}},\"measurement\":{\"type\":\"object\",\"properties\":{\"apiIdentifier\":{\"type\":\"string\"},\"value\":{\"type\":\"number\"},\"unit\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\"}}}}}",
+            "statusType": 200,
+            "description": "Successful response with metric and measurement data",
+        }
+    ],
+}
+
 try:
     config_metricas = carregar_config_ids(ARQUIVO_CONFIG_METRICAS)
     houve_alteracao_config = False
@@ -598,9 +717,15 @@ try:
         idOpenApiEndpointsCollector = criar_collector(payload_openapi_endpoints_collector)
         idSourceCodeCollector = criar_collector(payload_source_code_collector)
         idLogMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector)
+        idCodeDbConnectionsCollector = criar_collector(payload_code_db_connections_collector)
+        idDockerComposeDbConnsCollector = criar_collector(payload_docker_compose_db_conns_collector)
+        idLogMetricOperationsCollector8084 = criar_collector(payload_log_metric_operations_collector_8084)
         config_metricas["idOpenApiEndpointsCollector"] = idOpenApiEndpointsCollector
         config_metricas["idSourceCodeCollector"] = idSourceCodeCollector
         config_metricas["idLogMetricOperationsCollector"] = idLogMetricOperationsCollector
+        config_metricas["idCodeDbConnectionsCollector"] = idCodeDbConnectionsCollector
+        config_metricas["idDockerComposeDbConnsCollector"] = idDockerComposeDbConnsCollector
+        config_metricas["idLogMetricOperationsCollector8084"] = idLogMetricOperationsCollector8084
         houve_alteracao_config = True
     else:
         idOpenApiEndpointsCollector = config_metricas.get("idOpenApiEndpointsCollector")
@@ -627,6 +752,30 @@ try:
             config_metricas["idLogMetricOperationsCollector"] = idLogMetricOperationsCollector
             houve_alteracao_config = True
 
+        idCodeDbConnectionsCollector = config_metricas.get("idCodeDbConnectionsCollector")
+        if idCodeDbConnectionsCollector:
+            print("♻️ Reutilizando idCodeDbConnectionsCollector salvo em configuração.")
+        else:
+            idCodeDbConnectionsCollector = criar_collector(payload_code_db_connections_collector)
+            config_metricas["idCodeDbConnectionsCollector"] = idCodeDbConnectionsCollector
+            houve_alteracao_config = True
+
+        idDockerComposeDbConnsCollector = config_metricas.get("idDockerComposeDbConnsCollector")
+        if idDockerComposeDbConnsCollector:
+            print("♻️ Reutilizando idDockerComposeDbConnsCollector salvo em configuração.")
+        else:
+            idDockerComposeDbConnsCollector = criar_collector(payload_docker_compose_db_conns_collector)
+            config_metricas["idDockerComposeDbConnsCollector"] = idDockerComposeDbConnsCollector
+            houve_alteracao_config = True
+
+        idLogMetricOperationsCollector8084 = config_metricas.get("idLogMetricOperationsCollector8084")
+        if idLogMetricOperationsCollector8084:
+            print("♻️ Reutilizando idLogMetricOperationsCollector8084 salvo em configuração.")
+        else:
+            idLogMetricOperationsCollector8084 = criar_collector(payload_log_metric_operations_collector_8084)
+            config_metricas["idLogMetricOperationsCollector8084"] = idLogMetricOperationsCollector8084
+            houve_alteracao_config = True
+
     if houve_alteracao_config:
         salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
         print(f"💾 IDs salvos em: {ARQUIVO_CONFIG_METRICAS}")
@@ -637,3 +786,6 @@ except Exception:
 print(f"✅ idOpenApiEndpointsCollector: {idOpenApiEndpointsCollector}")
 print(f"✅ idSourceCodeCollector: {idSourceCodeCollector}")
 print(f"✅ idLogMetricOperationsCollector: {idLogMetricOperationsCollector}")
+print(f"✅ idCodeDbConnectionsCollector: {idCodeDbConnectionsCollector}")
+print(f"✅ idDockerComposeDbConnsCollector: {idDockerComposeDbConnsCollector}")
+print(f"✅ idLogMetricOperationsCollector8084: {idLogMetricOperationsCollector8084}")
