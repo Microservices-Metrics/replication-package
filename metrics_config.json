@@ -1,0 +1,10 @@
+{
+  "idNumberofEndpointsMetric": "ba8fc479-2996-4604-b54f-9f523b3adae9",
+  "idDatabaseConnectionsMetric": "2101cdb7-1140-42f9-9be4-1877b736f76d",
+  "idAmarisContabilMicroservice": "b9075535-3b1f-487c-a4ab-c85cf8637160",
+  "idFinanceUsersMicroservice": "0927094e-1705-45b0-87fb-c915725c0a98",
+  "idPainelContabilMicroservice": "313709a6-48ea-4acd-94b1-7e745e198188",
+  "idOpenApiEndpointsCollector": "8c72ab1d-e7a0-407f-b202-c2f5bbcf1681",
+  "idSourceCodeCollector": "a6337070-fc5a-4938-95e1-8aa8b493879a",
+  "idLogMetricOperationsCollector": "a3a7268f-274a-4613-b5c7-5def4029988d"
+}
