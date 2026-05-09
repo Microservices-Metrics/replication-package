@@ -1,10 +1,39 @@
 {
-  "idNumberofEndpointsMetric": "ba8fc479-2996-4604-b54f-9f523b3adae9",
-  "idDatabaseConnectionsMetric": "2101cdb7-1140-42f9-9be4-1877b736f76d",
-  "idAmarisContabilMicroservice": "b9075535-3b1f-487c-a4ab-c85cf8637160",
-  "idFinanceUsersMicroservice": "0927094e-1705-45b0-87fb-c915725c0a98",
-  "idPainelContabilMicroservice": "313709a6-48ea-4acd-94b1-7e745e198188",
-  "idOpenApiEndpointsCollector": "8c72ab1d-e7a0-407f-b202-c2f5bbcf1681",
-  "idSourceCodeCollector": "a6337070-fc5a-4938-95e1-8aa8b493879a",
-  "idLogMetricOperationsCollector": "a3a7268f-274a-4613-b5c7-5def4029988d"
+  "metrics": {
+    "idNumberofEndpointsMetric": "3cb489f0-cad6-494e-a2a5-f9b3012227dd",
+    "idDatabaseConnectionsMetric": "901389fa-5c8e-4593-a614-21b8b60e9c2d"
+  },
+  "microservices": {
+    "idAmarisContabilMicroservice": "bd274a50-8e88-4e1c-a7ea-513b9218b000",
+    "idFinanceUsersMicroservice": "f65a9d26-090c-4aad-b158-23fa7854c58e",
+    "idPainelContabilMicroservice": "77668cef-3ce2-4f03-89fc-d679258683df"
+  },
+  "collectors": {
+    "idOpenApiEndpointsCollector": "f3778810-4f60-4018-8e4d-a0373e4dd576",
+    "idSourceCodeCollector": "07bd18bd-6847-4c92-90dc-5cdba9fb91a8",
+    "idLogMetricOperationsCollector": "7fb75aa2-55ed-4b31-94c7-2b17b4fdba4e",
+    "idCodeDbConnectionsCollector": "7ad1b460-9621-4ac7-8b6c-8cd4e0b25149",
+    "idDockerComposeDbConnsCollector": "44e4f603-e453-42d9-bd69-797f7b16d01d",
+    "idLogDBMetricOperationsCollector": "882a0e10-93bd-4397-b1fc-643ee69841ec"
+  },
+  "collectorConfigs": {
+    "idOpenApiAmarisCollectorConfig": "d1726948-fd14-4ffc-b096-05c45fff5fe0",
+    "idOpenApiFinanceUsersCollectorConfig": "7bd30381-7279-4be7-91fe-4f969cf06da6",
+    "idOpenApiPainelContabilCollectorConfig": "37d4dbfb-1da0-4843-9448-572722e760d4",
+    "idSourceCodeAmarisCollectorConfig": "ce4c1b32-923f-45a4-a1fe-ec90bb49bd7d",
+    "idSourceCodeFinanceUsersCollectorConfig": "0783e128-c102-46cb-b579-f53928abe535",
+    "idSourceCodePainelContabilCollectorConfig": "266047d1-2be5-40da-87d9-560096a37d93",
+    "idLogMetricAmarisCollectorConfig": "ad1d24bd-6b26-4b70-aacd-01539fe86bb9",
+    "idLogMetricFinanceUsersCollectorConfig": "48f082d9-79a1-4dc9-ae15-23d11211d456",
+    "idLogMetricPainelContabilCollectorConfig": "78abb902-c04b-4d40-aa56-4a6ee22b71d7",
+    "idCodeDbAmarisCollectorConfig": "58071b57-b122-4e98-b3ab-29e17986764e",
+    "idCodeDbFinanceUsersCollectorConfig": "ae6e9b3c-efcc-4f50-a7c2-febfef35c03a",
+    "idCodeDbPainelContabilCollectorConfig": "7ab59c02-f02f-40cb-bce6-2796294ae265",
+    "idDockerComposeAmarisCollectorConfig": "ba3b6a44-93df-46ab-af50-94261819a983",
+    "idDockerComposeFinanceUsersCollectorConfig": "5698085b-e8ce-4ff3-90ac-507689341e2b",
+    "idDockerComposePainelContabilCollectorConfig": "83a581d0-8ba8-4786-ae53-5df25f5816dd",
+    "idLogDBMetricAmarisCollectorConfig": "d69b6eaa-1d02-4f88-bce2-68ccaebb2d66",
+    "idLogDBMetricFinanceUsersCollectorConfig": "efce725e-cb0e-4650-b33d-8dfae707239f",
+    "idLogDBMetricPainelContabilCollectorConfig": "b68f9c5a-482b-41d3-92ff-334a71cec315"
+  }
 }

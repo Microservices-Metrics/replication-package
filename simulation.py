@@ -66,7 +66,6 @@ REPOSITORIOS = {
 CHAVE_PARA_SECAO = {
     "idNumberofEndpointsMetric": "metrics",
     "idDatabaseConnectionsMetric": "metrics",
-    "idAmarisMicroservice": "microservices",
     "idAmarisContabilMicroservice": "microservices",
     "idFinanceUsersMicroservice": "microservices",
     "idPainelContabilMicroservice": "microservices",
@@ -77,6 +76,23 @@ CHAVE_PARA_SECAO = {
     "idDockerComposeDbConnsCollector": "collectors",
     "idLogDBMetricOperationsCollector": "collectors",
     "idOpenApiAmarisCollectorConfig": "collectorConfigs",
+    "idOpenApiFinanceUsersCollectorConfig": "collectorConfigs",
+    "idOpenApiPainelContabilCollectorConfig": "collectorConfigs",
+    "idSourceCodeAmarisCollectorConfig": "collectorConfigs",
+    "idSourceCodeFinanceUsersCollectorConfig": "collectorConfigs",
+    "idSourceCodePainelContabilCollectorConfig": "collectorConfigs",
+    "idLogMetricAmarisCollectorConfig": "collectorConfigs",
+    "idLogMetricFinanceUsersCollectorConfig": "collectorConfigs",
+    "idLogMetricPainelContabilCollectorConfig": "collectorConfigs",
+    "idCodeDbAmarisCollectorConfig": "collectorConfigs",
+    "idCodeDbFinanceUsersCollectorConfig": "collectorConfigs",
+    "idCodeDbPainelContabilCollectorConfig": "collectorConfigs",
+    "idDockerComposeAmarisCollectorConfig": "collectorConfigs",
+    "idDockerComposeFinanceUsersCollectorConfig": "collectorConfigs",
+    "idDockerComposePainelContabilCollectorConfig": "collectorConfigs",
+    "idLogDBMetricAmarisCollectorConfig": "collectorConfigs",
+    "idLogDBMetricFinanceUsersCollectorConfig": "collectorConfigs",
+    "idLogDBMetricPainelContabilCollectorConfig": "collectorConfigs",
 }
 
 def run_command(command, cwd=None):
@@ -95,8 +111,8 @@ def criar_metrica(payload):
     endpoint = "http://localhost:8080/metrics"
     headers = {"Content-Type": "application/json"}
 
-    print("\n" + "-"*40)
-    print("\n📨 Requisição HTTP")
+    print("-"*100)
+    print("📨 Requisição HTTP")
     print(f"   Método: POST")
     print(f"   URL: {endpoint}")
     print(f"   Headers: {headers}")
@@ -150,8 +166,8 @@ def criar_microservico(payload):
     endpoint = "http://localhost:8080/microservices"
     headers = {"Content-Type": "application/json"}
 
-    print("\n" + "-"*40)
-    print("\n📨 Requisição HTTP")
+    print("-"*100)
+    print("📨 Requisição HTTP")
     print("   Método: POST")
     print(f"   URL: {endpoint}")
     print(f"   Headers: {headers}")
@@ -204,8 +220,8 @@ def criar_collector(payload):
     endpoint = "http://localhost:8080/collectors"
     headers = {"Content-Type": "application/json"}
 
-    print("\n" + "-"*40)
-    print("\n📨 Requisição HTTP")
+    print("-"*100)
+    print("📨 Requisição HTTP")
     print("   Método: POST")
     print(f"   URL: {endpoint}")
     print(f"   Headers: {headers}")
@@ -258,8 +274,8 @@ def criar_collector_config(payload):
     endpoint = "http://localhost:8080/collector-configs"
     headers = {"Content-Type": "application/json"}
 
-    print("\n" + "-"*40)
-    print("\n📨 Requisição HTTP")
+    print("-"*100)
+    print("📨 Requisição HTTP")
     print("   Método: POST")
     print(f"   URL: {endpoint}")
     print(f"   Headers: {headers}")
@@ -535,8 +551,8 @@ try:
     if houve_alteracao_config:
         salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
         print(f"💾 IDs salvos em: {ARQUIVO_CONFIG_METRICAS}")
-except Exception:
-    print("❌ Não foi possível criar todas as métricas base.")
+except Exception as e:
+    print(f"❌ Não foi possível criar todas as métricas base: {e}")
     sys.exit(1)
 
 print(f"✅ idNumberofEndpointsMetric: {idNumberofEndpointsMetric}")
@@ -642,8 +658,8 @@ try:
     if houve_alteracao_config:
         salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
         print(f"💾 IDs salvos em: {ARQUIVO_CONFIG_METRICAS}")
-except Exception:
-    print("❌ Não foi possível criar todos os microserviços base.")
+except Exception as e:
+    print(f"❌ Não foi possível criar todos os microserviços base: {e}")
     sys.exit(1)
 
 print(f"✅ idAmarisContabilMicroservice: {idAmarisContabilMicroservice}")
@@ -918,8 +934,8 @@ try:
     if houve_alteracao_config:
         salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
         print(f"💾 IDs salvos em: {ARQUIVO_CONFIG_METRICAS}")
-except Exception:
-    print("❌ Não foi possível criar os collectors base.")
+except Exception as e:
+    print(f"❌ Não foi possível criar os collectors base: {e}")
     sys.exit(1)
 
 print(f"✅ idOpenApiEndpointsCollector: {idOpenApiEndpointsCollector}")
@@ -934,42 +950,59 @@ print(f"✅ idLogDBMetricOperationsCollector: {idLogDBMetricOperationsCollector}
 # ==========================================
 print("\n🔄 ETAPA 6: Criando configurações de coleta...")
 
-start_date_time = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-end_date_time = (datetime.now(timezone.utc) + timedelta(minutes=30)).replace(microsecond=0).isoformat()
-
-payload_openapi_amaris_collector_config = {
-    "collectorId": idOpenApiEndpointsCollector,
-    "microserviceId": idAmarisContabilMicroservice,
-    "cronExpression": "0 */5 * * * *",
-    "startDateTime": start_date_time,
-    "endDateTime": end_date_time,
-}
+COLLECTOR_CONFIGS_SPEC = [
+    ("idOpenApiAmarisCollectorConfig",              idOpenApiEndpointsCollector,      idAmarisContabilMicroservice,  "0 */5 * * * *"),
+    ("idOpenApiFinanceUsersCollectorConfig",         idOpenApiEndpointsCollector,      idFinanceUsersMicroservice,    "0 */5 * * * *"),
+    ("idOpenApiPainelContabilCollectorConfig",       idOpenApiEndpointsCollector,      idPainelContabilMicroservice,  "0 */5 * * * *"),
+    ("idSourceCodeAmarisCollectorConfig",            idSourceCodeCollector,            idAmarisContabilMicroservice,  "0 */10 * * * *"),
+    ("idSourceCodeFinanceUsersCollectorConfig",      idSourceCodeCollector,            idFinanceUsersMicroservice,    "0 */10 * * * *"),
+    ("idSourceCodePainelContabilCollectorConfig",    idSourceCodeCollector,            idPainelContabilMicroservice,  "0 */10 * * * *"),
+    ("idLogMetricAmarisCollectorConfig",             idLogMetricOperationsCollector,   idAmarisContabilMicroservice,  "0 */15 * * * *"),
+    ("idLogMetricFinanceUsersCollectorConfig",       idLogMetricOperationsCollector,   idFinanceUsersMicroservice,    "0 */15 * * * *"),
+    ("idLogMetricPainelContabilCollectorConfig",     idLogMetricOperationsCollector,   idPainelContabilMicroservice,  "0 */15 * * * *"),
+    ("idCodeDbAmarisCollectorConfig",                idCodeDbConnectionsCollector,     idAmarisContabilMicroservice,  "0 */10 * * * *"),
+    ("idCodeDbFinanceUsersCollectorConfig",          idCodeDbConnectionsCollector,     idFinanceUsersMicroservice,    "0 */10 * * * *"),
+    ("idCodeDbPainelContabilCollectorConfig",        idCodeDbConnectionsCollector,     idPainelContabilMicroservice,  "0 */10 * * * *"),
+    ("idDockerComposeAmarisCollectorConfig",         idDockerComposeDbConnsCollector,  idAmarisContabilMicroservice,  "0 */10 * * * *"),
+    ("idDockerComposeFinanceUsersCollectorConfig",   idDockerComposeDbConnsCollector,  idFinanceUsersMicroservice,    "0 */10 * * * *"),
+    ("idDockerComposePainelContabilCollectorConfig", idDockerComposeDbConnsCollector,  idPainelContabilMicroservice,  "0 */10 * * * *"),
+    ("idLogDBMetricAmarisCollectorConfig",           idLogDBMetricOperationsCollector, idAmarisContabilMicroservice,  "0 */15 * * * *"),
+    ("idLogDBMetricFinanceUsersCollectorConfig",     idLogDBMetricOperationsCollector, idFinanceUsersMicroservice,    "0 */15 * * * *"),
+    ("idLogDBMetricPainelContabilCollectorConfig",   idLogDBMetricOperationsCollector, idPainelContabilMicroservice,  "0 */15 * * * *"),
+]
 
 try:
     config_metricas = carregar_config_ids(ARQUIVO_CONFIG_METRICAS)
     houve_alteracao_config = False
+    collector_config_ids = {}
 
-    if args.forcar_recriacao_ids:
-        print("🔁 Modo forçado ativado: recriando collector-config...")
-        idOpenApiAmarisCollectorConfig = criar_collector_config(payload_openapi_amaris_collector_config)
-        definir_config_id(config_metricas, "idOpenApiAmarisCollectorConfig", idOpenApiAmarisCollectorConfig)
-        houve_alteracao_config = True
-    else:
-        idOpenApiAmarisCollectorConfig = obter_config_id(config_metricas, "idOpenApiAmarisCollectorConfig")
-        if idOpenApiAmarisCollectorConfig:
-            print("♻️ Reutilizando idOpenApiAmarisCollectorConfig salvo em configuração.")
+    for chave, collector_id, microservice_id, cron in COLLECTOR_CONFIGS_SPEC:
+        id_existente = obter_config_id(config_metricas, chave)
+        if id_existente and not args.forcar_recriacao_ids:
+            print(f"♻️ Reutilizando {chave} salvo em configuração.")
+            collector_config_ids[chave] = id_existente
         else:
-            idOpenApiAmarisCollectorConfig = criar_collector_config(payload_openapi_amaris_collector_config)
-            definir_config_id(config_metricas, "idOpenApiAmarisCollectorConfig", idOpenApiAmarisCollectorConfig)
+            if args.forcar_recriacao_ids:
+                print(f"🔁 Modo forçado ativado: recriando {chave}...")
+            now = datetime.now(timezone.utc)
+            payload = {
+                "collectorId": collector_id,
+                "microserviceId": microservice_id,
+                "cronExpression": cron,
+                "startDateTime": now.replace(microsecond=0).isoformat(),
+                "endDateTime": (now + timedelta(minutes=30)).replace(microsecond=0).isoformat(),
+            }
+            novo_id = criar_collector_config(payload)
+            collector_config_ids[chave] = novo_id
+            definir_config_id(config_metricas, chave, novo_id)
+            salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
             houve_alteracao_config = True
 
     if houve_alteracao_config:
-        salvar_config_ids(ARQUIVO_CONFIG_METRICAS, config_metricas)
         print(f"💾 IDs salvos em: {ARQUIVO_CONFIG_METRICAS}")
-except Exception:
-    print("❌ Não foi possível criar a configuração de coleta.")
+except Exception as e:
+    print(f"❌ Não foi possível criar a configuração de coleta: {e}")
     sys.exit(1)
 
-print(f"✅ idOpenApiAmarisCollectorConfig: {idOpenApiAmarisCollectorConfig}")
-print(f"✅ startDateTime utilizado: {start_date_time}")
-print(f"✅ endDateTime utilizado: {end_date_time}")
+for chave, *_ in COLLECTOR_CONFIGS_SPEC:
+    print(f"✅ {chave}: {collector_config_ids[chave]}")
