@@ -578,6 +578,10 @@ payload_amaris_contabil = {
             "varName": "urlLog",
             "varValue": "http://host.docker.internal:8091/api/v1/logs",
         },
+        {
+            "varName": "dockerComposeAnalysis",
+            "varValue": True,
+        }
     ],
 }
 
@@ -596,6 +600,10 @@ payload_finance_users = {
             "varName": "urlLog",
             "varValue": "http://host.docker.internal:8093/api/v1/logs",
         },
+        {
+            "varName": "dockerComposeAnalysis",
+            "varValue": True,
+        }
     ],
 }
 
@@ -614,6 +622,10 @@ payload_painel_contabil = {
             "varName": "urlLog",
             "varValue": "http://host.docker.internal:5001/api/v1/logs?tail=100",
         },
+        {
+            "varName": "dockerComposeAnalysis",
+            "varValue": True,
+        }
     ],
 }
 
@@ -951,7 +963,7 @@ print(f"✅ idLogDBMetricOperationsCollector: {idLogDBMetricOperationsCollector}
 print("\n🔄 ETAPA 6: Criando configurações de coleta...")
 
 COLLECTOR_CONFIGS_SPEC = [
-    ("idOpenApiAmarisCollectorConfig",              idOpenApiEndpointsCollector,      idAmarisContabilMicroservice,  "0 */5 * * * *"),
+    ("idOpenApiAmarisCollectorConfig",               idOpenApiEndpointsCollector,      idAmarisContabilMicroservice,  "0 */5 * * * *"),
     ("idOpenApiFinanceUsersCollectorConfig",         idOpenApiEndpointsCollector,      idFinanceUsersMicroservice,    "0 */5 * * * *"),
     ("idOpenApiPainelContabilCollectorConfig",       idOpenApiEndpointsCollector,      idPainelContabilMicroservice,  "0 */5 * * * *"),
     ("idSourceCodeAmarisCollectorConfig",            idSourceCodeCollector,            idAmarisContabilMicroservice,  "0 */10 * * * *"),
