@@ -581,6 +581,10 @@ payload_amaris_contabil = {
         {
             "varName": "dockerComposeAnalysis",
             "varValue": True,
+        },
+        {
+            "varName": "repositoryUrl",
+            "varValue": "https://github.com/brunopromano/amaris-contabil"
         }
     ],
 }
@@ -603,6 +607,10 @@ payload_finance_users = {
         {
             "varName": "dockerComposeAnalysis",
             "varValue": True,
+        },
+        {
+            "varName": "repositoryUrl",
+            "varValue": "https://github.com/brunopromano/finance-users-api"
         }
     ],
 }
@@ -625,6 +633,10 @@ payload_painel_contabil = {
         {
             "varName": "dockerComposeAnalysis",
             "varValue": True,
+        },
+        {
+            "varName": "repositoryUrl",
+            "varValue": "https://github.com/brunopromano/painel-contabil"
         }
     ],
 }
