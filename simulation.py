@@ -1076,18 +1076,21 @@ for chave, *_ in COLLECTOR_CONFIGS_SPEC:
 agora = datetime.now(timezone.utc)
 segundos_restantes = (end_dt - agora).total_seconds()
 if segundos_restantes > 0:
-    print(f"\n⏳ Aguardando até o fim do experimento: {end_dt.isoformat()}")
-    print(f"   Tempo restante: {int(segundos_restantes)} segundo(s)...")
+    print(f"\n⏳ Aguardando até o fim do experimento:")
+    print(f"   Início: {agora.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    print(f"   Fim:    {end_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    print(f"   Tempo restante: {segundos_restantes/60:.1f} min...")
     while True:
         agora = datetime.now(timezone.utc)
         restante = (end_dt - agora).total_seconds()
         if restante <= 0:
             break
-        intervalo = min(restante, 30)
+        intervalo = min(restante, 300)
         time.sleep(intervalo)
-        restante_atualizado = (end_dt - datetime.now(timezone.utc)).total_seconds()
+        agora = datetime.now(timezone.utc)
+        restante_atualizado = (end_dt - agora).total_seconds()
         if restante_atualizado > 0:
-            print(f"   ⏱️  {int(restante_atualizado)}s restantes...")
+            print(f"   ⏱️  [{agora.strftime('%Y-%m-%d %H:%M:%S UTC')}] {restante_atualizado/60:.1f} min restantes...")
     print(f"✅ endDateTime atingido. Prosseguindo para coleta de logs...")
 else:
     print(f"\n✅ endDateTime já passou. Prosseguindo para coleta de logs...")
