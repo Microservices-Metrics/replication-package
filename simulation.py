@@ -843,15 +843,15 @@ payload_docker_compose_db_conns_collector = {
     ],
 }
 
-payload_log_metric_operations_collector_8084 = {
-    "name": "Log Metric Operations Collector",
-    "description": "Collector to count operations from logs of an application",
+payload_log_db_connections_collector = {
+    "name": "Log DB Connections Metric Collector",
+    "description": "Collector to count connections to a database from logs",
     "collectionMethod": "logs",
     "metricId": idDatabaseConnectionsMetric,
     "metadata": [
         {
             "keyName": "url",
-            "keyValue": "http://host.docker.internal:8084/api/collect",
+            "keyValue": "http://host.docker.internal:8085/api/collect",
         },
         {
             "keyName": "requestSchema",
@@ -886,7 +886,7 @@ try:
         idLogMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector)
         idCodeDbConnectionsCollector = criar_collector(payload_code_db_connections_collector)
         idDockerComposeDbConnsCollector = criar_collector(payload_docker_compose_db_conns_collector)
-        idLogDBMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector_8084)
+        idLogDBMetricOperationsCollector = criar_collector(payload_log_db_connections_collector)
         definir_config_id(config_metricas, "idOpenApiEndpointsCollector", idOpenApiEndpointsCollector)
         definir_config_id(config_metricas, "idSourceCodeCollector", idSourceCodeCollector)
         definir_config_id(config_metricas, "idLogMetricOperationsCollector", idLogMetricOperationsCollector)
@@ -939,7 +939,7 @@ try:
         if idLogDBMetricOperationsCollector:
             print("♻️ Reutilizando idLogDBMetricOperationsCollector salvo em configuração.")
         else:
-            idLogDBMetricOperationsCollector = criar_collector(payload_log_metric_operations_collector_8084)
+            idLogDBMetricOperationsCollector = criar_collector(payload_log_db_connections_collector)
             definir_config_id(config_metricas, "idLogDBMetricOperationsCollector", idLogDBMetricOperationsCollector)
             houve_alteracao_config = True
 
