@@ -425,26 +425,19 @@ except ValueError:
     duracao_experimento_minutos = 30
 print(f"✅ Duração do experimento: {duracao_experimento_minutos} minuto(s)\n" + "="*40)
 
+_proxima = proxima_meia_hora(datetime.now(timezone.utc))
+entrada_aguardar = input(f"🕐 Aguardar próxima meia hora para iniciar o experimento? (próximo: {_proxima.strftime('%Y-%m-%d %H:%M UTC')}) [S/N] (padrão: N): ").strip().upper()
+aguardar_proxima_meia_hora = entrada_aguardar == "S"
+print(f"✅ Início agendado: {'próxima meia hora (00 ou 30)' if aguardar_proxima_meia_hora else 'imediato'}\n" + "="*40)
+
 def proxima_meia_hora(dt: datetime) -> datetime:
-    """Retorna o próximo instante cujo minuto é 00 ou 30 (arredonda para cima)."""
-    minuto = dt.minute
-    segundo = dt.second
-    microsegundo = dt.microsecond
-    if minuto < 30 and (segundo > 0 or microsegundo > 0 or minuto > 0):
-        proximo = dt.replace(minute=30, second=0, microsecond=0)
-        if proximo <= dt:
-            proximo = dt.replace(hour=dt.hour + 1, minute=0, second=0, microsecond=0)
-    elif minuto == 0 and segundo == 0 and microsegundo == 0:
-        proximo = dt  # já é exatamente na hora
-    elif minuto < 30:
-        proximo = dt.replace(minute=30, second=0, microsecond=0)
-    elif minuto == 30 and segundo == 0 and microsegundo == 0:
-        proximo = dt  # já é exatamente na meia hora
+    """Retorna o próximo instante cujo minuto é 00 ou 30 (sempre no futuro).
+    Ex: 05:10 → 05:30 | 05:33 → 06:00 | 05:30 → 06:00 | 06:00 → 06:30
+    """
+    if dt.minute < 30:
+        return dt.replace(minute=30, second=0, microsecond=0)
     else:
-        # minuto > 30 ou (minuto == 30 com segundos)
-        hora_seguinte = dt + timedelta(hours=1)
-        proximo = hora_seguinte.replace(minute=0, second=0, microsecond=0)
-    return proximo
+        return (dt + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 
 pastas_dos_projetos = []
 
@@ -1028,7 +1021,7 @@ COLLECTOR_CONFIGS_SPEC = [
 ]
 
 now = datetime.now(timezone.utc)
-start_dt = proxima_meia_hora(now)
+start_dt = proxima_meia_hora(now) if aguardar_proxima_meia_hora else now.replace(second=0, microsecond=0)
 end_dt = start_dt + timedelta(minutes=duracao_experimento_minutos)
 print(f"🕐 Início do experimento (startDateTime): {start_dt.isoformat()}")
 print(f"🕑 Fim do experimento   (endDateTime):   {end_dt.isoformat()}")
