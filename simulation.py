@@ -3,6 +3,7 @@ import sys
 import shutil
 import argparse
 import json
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -413,6 +414,37 @@ entrada_usuario = input("📁 Digite o caminho raiz onde as pastas serão criada
 pasta_raiz = Path(entrada_usuario).expanduser().resolve()
 pasta_raiz.mkdir(parents=True, exist_ok=True)
 print(f"✅ Diretório base: {pasta_raiz}\n" + "="*40)
+
+entrada_duracao = input("⏱️  Digite a duração do experimento em minutos (padrão: 30): ").strip()
+try:
+    duracao_experimento_minutos = int(entrada_duracao) if entrada_duracao else 30
+    if duracao_experimento_minutos <= 0:
+        raise ValueError
+except ValueError:
+    print("⚠️ Valor inválido. Usando duração padrão de 30 minutos.")
+    duracao_experimento_minutos = 30
+print(f"✅ Duração do experimento: {duracao_experimento_minutos} minuto(s)\n" + "="*40)
+
+def proxima_meia_hora(dt: datetime) -> datetime:
+    """Retorna o próximo instante cujo minuto é 00 ou 30 (arredonda para cima)."""
+    minuto = dt.minute
+    segundo = dt.second
+    microsegundo = dt.microsecond
+    if minuto < 30 and (segundo > 0 or microsegundo > 0 or minuto > 0):
+        proximo = dt.replace(minute=30, second=0, microsecond=0)
+        if proximo <= dt:
+            proximo = dt.replace(hour=dt.hour + 1, minute=0, second=0, microsecond=0)
+    elif minuto == 0 and segundo == 0 and microsegundo == 0:
+        proximo = dt  # já é exatamente na hora
+    elif minuto < 30:
+        proximo = dt.replace(minute=30, second=0, microsecond=0)
+    elif minuto == 30 and segundo == 0 and microsegundo == 0:
+        proximo = dt  # já é exatamente na meia hora
+    else:
+        # minuto > 30 ou (minuto == 30 com segundos)
+        hora_seguinte = dt + timedelta(hours=1)
+        proximo = hora_seguinte.replace(minute=0, second=0, microsecond=0)
+    return proximo
 
 pastas_dos_projetos = []
 
@@ -995,6 +1027,13 @@ COLLECTOR_CONFIGS_SPEC = [
     ("idLogDBMetricPainelContabilCollectorConfig",   idLogDBMetricOperationsCollector, idPainelContabilMicroservice,  "0 */15 * * * *"),
 ]
 
+now = datetime.now(timezone.utc)
+start_dt = proxima_meia_hora(now)
+end_dt = start_dt + timedelta(minutes=duracao_experimento_minutos)
+print(f"🕐 Início do experimento (startDateTime): {start_dt.isoformat()}")
+print(f"🕑 Fim do experimento   (endDateTime):   {end_dt.isoformat()}")
+print(f"⏱️  Duração: {duracao_experimento_minutos} minuto(s)\n" + "="*40)
+
 try:
     config_metricas = carregar_config_ids(ARQUIVO_CONFIG_METRICAS)
     houve_alteracao_config = False
@@ -1008,13 +1047,12 @@ try:
         else:
             if args.forcar_recriacao_ids:
                 print(f"🔁 Modo forçado ativado: recriando {chave}...")
-            now = datetime.now(timezone.utc)
             payload = {
                 "collectorId": collector_id,
                 "microserviceId": microservice_id,
                 "cronExpression": cron,
-                "startDateTime": now.replace(microsecond=0).isoformat(),
-                "endDateTime": (now + timedelta(minutes=30)).replace(microsecond=0).isoformat(),
+                "startDateTime": start_dt.isoformat(),
+                "endDateTime": end_dt.isoformat(),
             }
             novo_id = criar_collector_config(payload)
             collector_config_ids[chave] = novo_id
@@ -1030,3 +1068,85 @@ except Exception as e:
 
 for chave, *_ in COLLECTOR_CONFIGS_SPEC:
     print(f"✅ {chave}: {collector_config_ids[chave]}")
+
+# ==========================================
+# AGUARDAR ATÉ endDateTime
+# ==========================================
+
+agora = datetime.now(timezone.utc)
+segundos_restantes = (end_dt - agora).total_seconds()
+if segundos_restantes > 0:
+    print(f"\n⏳ Aguardando até o fim do experimento: {end_dt.isoformat()}")
+    print(f"   Tempo restante: {int(segundos_restantes)} segundo(s)...")
+    while True:
+        agora = datetime.now(timezone.utc)
+        restante = (end_dt - agora).total_seconds()
+        if restante <= 0:
+            break
+        intervalo = min(restante, 30)
+        time.sleep(intervalo)
+        restante_atualizado = (end_dt - datetime.now(timezone.utc)).total_seconds()
+        if restante_atualizado > 0:
+            print(f"   ⏱️  {int(restante_atualizado)}s restantes...")
+    print(f"✅ endDateTime atingido. Prosseguindo para coleta de logs...")
+else:
+    print(f"\n✅ endDateTime já passou. Prosseguindo para coleta de logs...")
+
+# ==========================================
+# ETAPA 7: Copiar logs dos contêineres para a pasta logs do repositório
+# ==========================================
+print("\n🔄 ETAPA 7: Copiando logs dos contêineres para a pasta de logs do repositório...")
+
+PASTA_LOGS_REPO = Path(__file__).resolve().parent / "logs"
+
+# Serviços com bind mount: logs já estão na pasta local do projeto clonado
+MICROSERVICOS_BIND_MOUNT = [
+    ("microservices/amaris-contabil",                        pasta_raiz / "microservices" / "amaris-contabil"                        / "logs"),
+    ("microservices/finance-users-api",                      pasta_raiz / "microservices" / "finance-users-api"                      / "logs"),
+    ("collectors/code-db-connections-metric-collector",      pasta_raiz / "collectors"    / "code-db-connections-metric-collector"   / "logs"),
+    ("collectors/code-metric-collector",                     pasta_raiz / "collectors"    / "code-metric-collector"                  / "logs"),
+    ("collectors/openapi-metric-collector",                  pasta_raiz / "collectors"    / "openapi-metric-collector"               / "logs"),
+]
+
+# Serviços com volume nomeado: necessário usar docker cp
+MICROSERVICOS_DOCKER_CP = [
+    ("microservices/painel-contabil",                        "painel-contabil-api-1",        "/app/logs"),
+    ("collectors/log-metric-collector",                      "log-collector-api",            "/app/logs"),
+    ("collectors/log-db-conns-metric-collector",             "log-db-conns-collector-api",   "/app/logs"),
+    ("metrichub/metrics-manager",                            "metric-manager-app",           "/app/logs"),
+]
+
+erros_log = []
+
+for nome, origem in MICROSERVICOS_BIND_MOUNT:
+    destino = PASTA_LOGS_REPO / nome
+    destino.mkdir(parents=True, exist_ok=True)
+    if origem.exists():
+        for arquivo in origem.iterdir():
+            if arquivo.is_file():
+                shutil.copy2(arquivo, destino / arquivo.name)
+        print(f"✅ Logs de '{nome}' copiados para: {destino}")
+    else:
+        print(f"⚠️  Pasta de logs de '{nome}' não encontrada em: {origem}")
+        erros_log.append(nome)
+
+for nome, container, caminho_container in MICROSERVICOS_DOCKER_CP:
+    destino = PASTA_LOGS_REPO / nome
+    destino.mkdir(parents=True, exist_ok=True)
+    resultado = subprocess.run(
+        ["docker", "cp", f"{container}:{caminho_container}/."],
+        cwd=destino,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if resultado.returncode == 0:
+        print(f"✅ Logs de '{nome}' copiados para: {destino}")
+    else:
+        print(f"⚠️  Não foi possível copiar logs de '{nome}' (container: {container}): {resultado.stderr.strip()}")
+        erros_log.append(nome)
+
+if erros_log:
+    print(f"\n⚠️  Alguns logs não puderam ser copiados: {', '.join(erros_log)}")
+else:
+    print(f"\n✅ Todos os logs foram copiados para: {PASTA_LOGS_REPO}")
