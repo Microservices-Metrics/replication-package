@@ -572,7 +572,7 @@ payload_amaris_contabil = {
         },
         {
             "varName": "urlControllers",
-            "varValue": "https://github.com/brunopromano/painel-contabil/tree/main/PainelContabil.API/Controllers",
+            "varValue": "https://github.com/brunopromano/amaris-contabil/tree/main/src/AmarisContabil.WebApi/Controllers",
         },
         {
             "varName": "urlLog",
